@@ -1,13 +1,4 @@
-// game.js (module)
-const {
-  initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-  getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, config
-} = window.firebaseBits;
-
-// Firebase init
-const app  = initializeApp(config);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+// --- Removido Firebase/Auth. Ranking agora é local via localStorage. ---
 
 // DOM
 const gameContainer = document.getElementById('gameContainer');
@@ -17,8 +8,6 @@ const gameOverEl = document.getElementById('gameOver');
 const finalScoreEl = document.getElementById('finalScore');
 const finalTimeEl  = document.getElementById('finalTime');
 const rankBody     = document.getElementById('rankBody');
-const rankHintHUD  = document.getElementById('rankHint');
-const rankHintModal= document.getElementById('rankHintModal');
 
 const crosshair = document.getElementById('crosshair');
 const player    = document.getElementById('player');
@@ -27,13 +16,8 @@ const gun       = document.getElementById('gun');
 const btnRestart   = document.getElementById('btnRestart');
 const btnPlayAgain = document.getElementById('btnPlayAgain');
 
-// Auth UI
-const loggedOutBox = document.getElementById('auth-logged-out');
-const loggedInBox  = document.getElementById('auth-logged-in');
-const userNameSpan = document.getElementById('userName');
-const btnGoogle    = document.getElementById('btnGoogle');
-const btnGuest     = document.getElementById('btnGuest');
-const btnLogout    = document.getElementById('btnLogout');
+const playerNameInput = document.getElementById('playerNameInput');
+const btnSaveScore    = document.getElementById('btnSaveScore');
 
 // Game state
 let score = 0;
@@ -83,45 +67,13 @@ const sfx = {
   window.addEventListener(ev, () => sfx.init(), { once: true, passive: true });
 });
 
-// ===== Auth (Google + Convidado) =====
-let guestDismissed = false;
-
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    loggedOutBox.classList.add('hidden');
-    loggedInBox.classList.remove('hidden');
-    userNameSpan.textContent = user.displayName || user.email || 'Player';
-    if (rankHintHUD)   rankHintHUD.textContent   = '';
-    if (rankHintModal) rankHintModal.textContent = '';
-  } else {
-    loggedOutBox.classList.remove('hidden');
-    loggedInBox.classList.add('hidden');
-    userNameSpan.textContent = '—';
-    if (!guestDismissed) {
-      if (rankHintHUD)   rankHintHUD.textContent   = 'Como convidado, seus tempos não serão salvos.';
-      if (rankHintModal) rankHintModal.textContent = 'Entre com Google para salvar seu tempo no ranking.';
-    }
-  }
-});
-
-btnGoogle.onclick = async () => {
-  try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch(e){ console.error(e); }
-};
-
-btnGuest.onclick = () => {
-  guestDismissed = true;
-  if (rankHintHUD)   rankHintHUD.textContent   = 'Jogando como convidado.';
-  if (rankHintModal) rankHintModal.textContent = 'Entre com Google para salvar seu tempo no ranking.';
-};
-
-btnLogout.onclick = async () => { try { await signOut(auth); } catch(e){ console.error(e); } };
-
 // ===== Jogo =====
 initGame();
 positionPlayer();
 attachAimHandlers();
 attachUIHandlers();
 renderLeaderboard(); // carregar ranking inicial
+loadSavedName();
 
 function initGame() {
   score = 0; updateScore();
@@ -138,10 +90,15 @@ function initGame() {
 }
 
 function positionPlayer() {
-  pivot = { x: gameContainer.clientWidth / 2, y: gameContainer.clientHeight - 80 };
+  // valor menor que 80 deixa mais baixo
+  pivot = { 
+    x: gameContainer.clientWidth / 2, 
+    y: gameContainer.clientHeight - 20 // estava 80
+  };
   player.style.left = `${pivot.x}px`;
   player.style.top  = `${pivot.y}px`;
   gun.style.transform = `rotate(0deg)`;
+
 }
 
 function attachAimHandlers() {
@@ -157,6 +114,16 @@ function attachAimHandlers() {
 function attachUIHandlers() {
   btnRestart.addEventListener('click', () => resetGame());
   btnPlayAgain.addEventListener('click', () => resetGame());
+  btnSaveScore.addEventListener('click', () => {
+    saveLocalScore();
+    renderLeaderboard();
+    btnSaveScore.disabled = true;
+    btnSaveScore.textContent = 'Salvo!';
+    setTimeout(() => {
+      btnSaveScore.disabled = false;
+      btnSaveScore.textContent = 'Salvar tempo';
+    }, 1200);
+  });
 
   // clique no fundo = erro
   gameContainer.addEventListener('click', (e) => {
@@ -257,11 +224,9 @@ function updateScore(){ scoreEl.textContent = score; }
 async function gameWon() {
   gameActive = false; stopTimer();
   finalScoreEl.textContent = score; finalTimeEl.textContent = formatTime(finishedTimeMs);
-  await trySaveScoreToCloud(); // salva se logado
-  await renderLeaderboard();   // mostra ranking
-  if (!auth.currentUser && rankHintModal) {
-    rankHintModal.textContent = 'Entre com Google para salvar seu tempo no ranking.';
-  }
+  // prepara campo de nome
+  playerNameInput.value = loadSavedName() || 'Player';
+  await renderLeaderboard();
   gameOverEl.classList.remove('hidden');
 }
 
@@ -271,44 +236,55 @@ function resetGame() {
   initGame();
 }
 
-// ===== Ranking (Firestore) =====
-async function trySaveScoreToCloud() {
-  const user = auth.currentUser;
-  if (!user) return; // visitante não salva
+// ===== Ranking Local (localStorage) =====
+const LS_KEY = 'fts_scores';
+const LS_NAME_KEY = 'fts_name';
+
+function loadScores() {
+  try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; }
+  catch { return []; }
+}
+function saveScores(list) {
+  localStorage.setItem(LS_KEY, JSON.stringify(list));
+}
+function loadSavedName() {
   try {
-    await addDoc(collection(db, 'scores'), {
-      uid: user.uid,
-      name: user.displayName || user.email || 'Player',
-      timeMs: Math.floor(finishedTimeMs),
-      createdAt: serverTimestamp()
-    });
-  } catch (e) { console.error('Erro ao salvar score:', e); }
+    const n = localStorage.getItem(LS_NAME_KEY) || '';
+    if (playerNameInput) playerNameInput.value = n || 'Player';
+    return n;
+  } catch { return ''; }
+}
+function saveLocalScore() {
+  const name = (playerNameInput?.value || 'Player').toString().trim() || 'Player';
+  try { localStorage.setItem(LS_NAME_KEY, name); } catch {}
+
+  const list = loadScores();
+  list.push({
+    name,
+    timeMs: Math.floor(finishedTimeMs),
+    createdAt: new Date().toISOString()
+  });
+  list.sort((a,b) => a.timeMs - b.timeMs || new Date(a.createdAt) - new Date(b.createdAt));
+  const top10 = list.slice(0,10);
+  saveScores(top10);
 }
 
 async function renderLeaderboard() {
   rankBody.innerHTML = `<tr><td colspan="4" class="text-center text-cyan-300 py-2">Carregando…</td></tr>`;
-  try {
-    const q = query(collection(db, 'scores'), orderBy('timeMs', 'asc'), orderBy('createdAt', 'asc'), limit(10));
-    const snap = await getDocs(q);
-    const rows = [];
-    let i = 1;
-    snap.forEach(doc => {
-      const d = doc.data();
-      rows.push(`
-        <tr>
-          <td>${i++}</td>
-          <td>${escapeHTML(d.name || 'Player')}</td>
-          <td>${formatTime(d.timeMs || 0)}</td>
-          <td>${formatDate(d.createdAt?.toDate ? d.createdAt.toDate() : new Date())}</td>
-        </tr>
-      `);
-    });
-    rankBody.innerHTML = rows.length ? rows.join('') :
-      `<tr><td colspan="4" class="text-center text-cyan-300 py-2">Sem registros ainda</td></tr>`;
-  } catch (e) {
-    console.error(e);
-    rankBody.innerHTML = `<tr><td colspan="4" class="text-center text-red-300 py-2">Falha ao carregar ranking</td></tr>`;
+  const list = loadScores();
+  if (!list.length) {
+    rankBody.innerHTML = `<tr><td colspan="4" class="text-center text-cyan-300 py-2">Sem registros ainda</td></tr>`;
+    return;
   }
+  const rows = list.map((d, idx) => `
+    <tr>
+      <td>${idx+1}</td>
+      <td>${escapeHTML(d.name || 'Player')}</td>
+      <td>${formatTime(d.timeMs || 0)}</td>
+      <td>${formatDate(new Date(d.createdAt))}</td>
+    </tr>
+  `);
+  rankBody.innerHTML = rows.join('');
 }
 
 function escapeHTML(s='') { return s.replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

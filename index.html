@@ -14,7 +14,7 @@
     .neon-text { text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 15px #0ff; }
     .neon-border { box-shadow: 0 0 10px #0ff, 0 0 20px #0ff, inset 0 0 10px #0ff; border: 1px solid #0ff; }
 
-    .target { position:absolute; border-radius:50%; cursor: crosshair; transition: transform .1s; box-shadow:0 0 15px currentColor; }
+    .target { position:absolute; border-radius:50%; cursor: none; transition: transform .1s; box-shadow:0 0 15px currentColor; }
     .target:hover { transform: scale(1.1); }
     .target-hit { animation: explode .5s forwards; }
     @keyframes explode { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.5);opacity:.5} 100%{transform:scale(0);opacity:0} }
@@ -22,10 +22,46 @@
     .laser { position:absolute; height:2px; background:#0ff; box-shadow:0 0 10px #0ff; transform-origin:left center; z-index:10; }
 
     /* Mira */
-    .crosshair { position:absolute; width:32px; height:32px; pointer-events:none; z-index:30; top:0; left:0; transform:translate(-50%,-50%); }
-    .crosshair:before, .crosshair:after { content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border:2px solid #0ff; border-radius:50%; width:28px; height:28px; box-shadow:0 0 10px #0ff; }
-    .crosshair:after { width:2px; height:32px; background:linear-gradient(#0ff,#0ff); border:0; box-shadow:0 0 8px #0ff; opacity:.8;
-      clip-path: polygon(0 0,100% 0,100% 45%,0 45%,0 55%,100% 55%,100% 100%,0 100%); }
+    .crosshair{
+  position:absolute; top:0; left:0; pointer-events:none; z-index:30;
+  transform:translate(-50%,-50%);
+  color:#0ff; /* cor base */
+filter: drop-shadow(0 0 3px #000) drop-shadow(0 0 8px #fff);
+  transition: filter .12s ease, color .12s ease;
+  will-change: transform;
+}
+.crosshair svg{ display:block; }
+
+.crosshair.smooth { transition: none; } /* (controle fino via JS) */
+
+/* quando mira está sobre um alvo */
+.crosshair.aim { color:#ffff80; filter: drop-shadow(0 0 10px #ffff80); }
+
+/* “recuo” breve ao atirar */
+.crosshair.shoot { animation: crosshairShoot .11s ease; }
+@keyframes crosshairShoot {
+  0%   { transform: translate(-50%,-50%) scale(1); }
+  50%  { transform: translate(-50%,-50%) scale(0.92); }
+  100% { transform: translate(-50%,-50%) scale(1); }
+}
+
+/* hit-marker (um X rapidinho) */
+.hitmarker{
+  position:absolute; width:26px; height:26px; pointer-events:none; z-index:35;
+  transform:translate(-50%,-50%); opacity:0; animation: hitmarker .18s ease forwards;
+}
+.hitmarker::before, .hitmarker::after{
+  content:""; position:absolute; left:50%; top:50%; width:2px; height:26px; background:#fff;
+  box-shadow:0 0 8px #fff;
+}
+.hitmarker::before{ transform:translate(-50%,-50%) rotate(45deg); }
+.hitmarker::after { transform:translate(-50%,-50%) rotate(-45deg); }
+@keyframes hitmarker {
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(0.7); }
+  50%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(1.05); }
+}
+
 
     /* Arma */
     .player { position:absolute; width:0; height:0; z-index:25; }
@@ -36,21 +72,6 @@
     /* Tabela ranking */
     .rank-table th, .rank-table td { border-bottom:1px solid rgba(0,255,255,.2); padding:.5rem .75rem; }
   </style>
-
-  <!-- Firebase (modular v9+) -->
-  <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-  import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
-  import config from './firebase-config.js';
-
-  // expõe para game.js
-  window.firebaseBits = {
-    initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
-    getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, config
-  };
-</script>
-
 </head>
 <body class="bg-black text-white">
   <div class="game-container" id="gameContainer">
@@ -77,34 +98,24 @@
             <button id="btnRestart" class="px-3 py-1 text-xs rounded neon-border hover:bg-cyan-900/30">Reiniciar</button>
           </div>
         </div>
-
-        <!-- Auth UI (somente Google + convidado) -->
-        <div class="min-w-[240px] bg-black/50 p-3 rounded neon-border">
-          <p class="text-xs text-cyan-200 mb-2">Autenticação</p>
-
-          <div id="auth-logged-out" class="flex flex-col gap-2">
-            <button id="btnGoogle" class="px-3 py-2 rounded bg-cyan-700/30 hover:bg-cyan-700/50">Entrar com Google</button>
-            <button id="btnGuest"  class="px-3 py-2 rounded neon-border hover:bg-cyan-900/30">Jogar como Convidado</button>
-            <p id="rankHint" class="text-xs text-cyan-300 mt-1">Como convidado, seus tempos não serão salvos.</p>
-          </div>
-
-          <div id="auth-logged-in" class="hidden">
-            <p class="text-sm"><span class="text-cyan-300">Logado:</span> <span id="userName">—</span></p>
-            <button id="btnLogout" class="mt-2 px-3 py-1 rounded neon-border hover:bg-red-900/30 text-sm">Sair</button>
-          </div>
-        </div>
       </div>
     </div>
 
-    <!-- GAME OVER + RANKING GLOBAL -->
+    <!-- GAME OVER + RANKING LOCAL -->
     <div id="gameOver" class="hidden absolute inset-0 flex items-center justify-center z-30 bg-black/80">
       <div class="text-center p-8 rounded-lg neon-border max-w-lg w-[90vw]">
         <h2 class="text-4xl font-bold mb-2 neon-text">MISSION COMPLETE!</h2>
         <p class="text-xl mb-2">Você fez <span id="finalScore">30</span> pontos!</p>
-        <p class="text-lg mb-6">Seu tempo: <span id="finalTime" class="neon-text">00:00.0</span></p>
+        <p class="text-lg">Seu tempo: <span id="finalTime" class="neon-text">00:00.0</span></p>
 
-        <div class="text-left">
-          <h3 class="text-2xl font-bold mb-3 neon-text">Ranking Global (Top 10)</h3>
+        <div class="mt-4 flex items-center justify-center gap-2">
+          <label for="playerNameInput" class="text-sm text-cyan-200">Nome:</label>
+          <input id="playerNameInput" class="px-2 py-1 bg-transparent neon-border rounded text-cyan-100 text-sm w-40" placeholder="Player" />
+          <button id="btnSaveScore" class="px-3 py-1 bg-transparent neon-border rounded text-sm hover:bg-blue-900/30">Salvar tempo</button>
+        </div>
+
+        <div class="text-left mt-6">
+          <h3 class="text-2xl font-bold mb-3 neon-text">Ranking Local (Top 10)</h3>
           <table class="rank-table w-full text-cyan-100 text-sm">
             <thead>
               <tr class="text-cyan-300">
@@ -116,7 +127,7 @@
             </thead>
             <tbody id="rankBody"></tbody>
           </table>
-          <p id="rankHintModal" class="mt-2 text-xs text-cyan-300"></p>
+          <p class="mt-2 text-xs text-cyan-300">Os tempos são salvos apenas neste dispositivo.</p>
         </div>
 
         <div class="mt-6 flex gap-3 justify-center">
@@ -126,7 +137,21 @@
     </div>
 
     <!-- MIRA -->
-    <div id="crosshair" class="crosshair"></div>
+    <div id="crosshair" class="crosshair">
+  <svg viewBox="0 0 48 48" width="48" height="48" aria-hidden="true">
+    <!-- anel externo -->
+    <circle cx="24" cy="24" r="18" fill="none" stroke="currentColor" stroke-width="2" opacity="0.95"/>
+    <!-- anel interno -->
+    <circle cx="24" cy="24" r="6" fill="none" stroke="currentColor" stroke-width="2" opacity="0.85"/>
+    <!-- ticks -->
+    <line x1="24" y1="0"  x2="24" y2="10" stroke="currentColor" stroke-width="2"/>
+    <line x1="24" y1="38" x2="24" y2="48" stroke="currentColor" stroke-width="2"/>
+    <line x1="0"  y1="24" x2="10" y2="24" stroke="currentColor" stroke-width="2"/>
+    <line x1="38" y1="24" x2="48" y2="24" stroke="currentColor" stroke-width="2"/>
+    <!-- ponto central -->
+    <circle cx="24" cy="24" r="1.8" fill="currentColor"/>
+  </svg>
+</div>
 
     <!-- PLAYER + GUN -->
     <div id="player" class="player">
