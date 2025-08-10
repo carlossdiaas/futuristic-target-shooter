@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Futuristic Target Shooter</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+    body { font-family: 'Orbitron', sans-serif; overflow: hidden; background:#0f0f23; color:#0ff; }
+    .game-container { position: relative; width: 100vw; height: 100vh; cursor: none; }
+
+    .neon-text { text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 15px #0ff; }
+    .neon-border { box-shadow: 0 0 10px #0ff, 0 0 20px #0ff, inset 0 0 10px #0ff; border: 1px solid #0ff; }
+
+    .target { position:absolute; border-radius:50%; cursor: crosshair; transition: transform .1s; box-shadow:0 0 15px currentColor; }
+    .target:hover { transform: scale(1.1); }
+    .target-hit { animation: explode .5s forwards; }
+    @keyframes explode { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.5);opacity:.5} 100%{transform:scale(0);opacity:0} }
+
+    .laser { position:absolute; height:2px; background:#0ff; box-shadow:0 0 10px #0ff; transform-origin:left center; z-index:10; }
+
+    /* Mira */
+    .crosshair { position:absolute; width:32px; height:32px; pointer-events:none; z-index:30; top:0; left:0; transform:translate(-50%,-50%); }
+    .crosshair:before, .crosshair:after { content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border:2px solid #0ff; border-radius:50%; width:28px; height:28px; box-shadow:0 0 10px #0ff; }
+    .crosshair:after { width:2px; height:32px; background:linear-gradient(#0ff,#0ff); border:0; box-shadow:0 0 8px #0ff; opacity:.8;
+      clip-path: polygon(0 0,100% 0,100% 45%,0 45%,0 55%,100% 55%,100% 100%,0 100%); }
+
+    /* Arma */
+    .player { position:absolute; width:0; height:0; z-index:25; }
+    .gun { position:absolute; left:0; top:0; width:140px; height:16px; transform-origin:0 50%; background:linear-gradient(90deg,#022,#0ff); border-radius:10px; box-shadow:0 0 12px #0ff; }
+    .gun::after { content:""; position:absolute; right:-10px; top:50%; transform:translateY(-50%); width:16px; height:6px; background:#9ff; border-radius:4px; box-shadow:0 0 10px #9ff; }
+    .gun-base { position:absolute; left:-10px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:50%; background:#033; box-shadow:0 0 12px #0ff inset, 0 0 12px #0ff; }
+
+    /* Tabela ranking */
+    .rank-table th, .rank-table td { border-bottom:1px solid rgba(0,255,255,.2); padding:.5rem .75rem; }
+  </style>
+
+  <!-- Firebase (modular v9+) -->
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  import config from './firebase-config.js';
+
+  // expõe para game.js
+  window.firebaseBits = {
+    initializeApp, getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged,
+    getFirestore, collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, config
+  };
+</script>
+
+</head>
+<body class="bg-black text-white">
+  <div class="game-container" id="gameContainer">
+    <!-- HUD -->
+    <div class="absolute top-4 left-4 z-20 bg-black/70 p-4 rounded-lg neon-border">
+      <div class="flex items-start justify-between gap-6">
+        <div>
+          <h1 class="text-2xl font-bold mb-2 neon-text">FUTURISTIC TARGET SHOOTER</h1>
+          <div class="flex items-end gap-8">
+            <div>
+              <p class="text-sm text-gray-400">SCORE</p>
+              <p class="text-3xl font-bold neon-text" id="score">0</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-400">TARGET</p>
+              <p class="text-3xl font-bold neon-text">30</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-400">TIMER</p>
+              <p class="text-3xl font-bold neon-text" id="timer">00:00.0</p>
+            </div>
+          </div>
+          <div class="mt-3">
+            <button id="btnRestart" class="px-3 py-1 text-xs rounded neon-border hover:bg-cyan-900/30">Reiniciar</button>
+          </div>
+        </div>
+
+        <!-- Auth UI (somente Google + convidado) -->
+        <div class="min-w-[240px] bg-black/50 p-3 rounded neon-border">
+          <p class="text-xs text-cyan-200 mb-2">Autenticação</p>
+
+          <div id="auth-logged-out" class="flex flex-col gap-2">
+            <button id="btnGoogle" class="px-3 py-2 rounded bg-cyan-700/30 hover:bg-cyan-700/50">Entrar com Google</button>
+            <button id="btnGuest"  class="px-3 py-2 rounded neon-border hover:bg-cyan-900/30">Jogar como Convidado</button>
+            <p id="rankHint" class="text-xs text-cyan-300 mt-1">Como convidado, seus tempos não serão salvos.</p>
+          </div>
+
+          <div id="auth-logged-in" class="hidden">
+            <p class="text-sm"><span class="text-cyan-300">Logado:</span> <span id="userName">—</span></p>
+            <button id="btnLogout" class="mt-2 px-3 py-1 rounded neon-border hover:bg-red-900/30 text-sm">Sair</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER + RANKING GLOBAL -->
+    <div id="gameOver" class="hidden absolute inset-0 flex items-center justify-center z-30 bg-black/80">
+      <div class="text-center p-8 rounded-lg neon-border max-w-lg w-[90vw]">
+        <h2 class="text-4xl font-bold mb-2 neon-text">MISSION COMPLETE!</h2>
+        <p class="text-xl mb-2">Você fez <span id="finalScore">30</span> pontos!</p>
+        <p class="text-lg mb-6">Seu tempo: <span id="finalTime" class="neon-text">00:00.0</span></p>
+
+        <div class="text-left">
+          <h3 class="text-2xl font-bold mb-3 neon-text">Ranking Global (Top 10)</h3>
+          <table class="rank-table w-full text-cyan-100 text-sm">
+            <thead>
+              <tr class="text-cyan-300">
+                <th class="text-left">#</th>
+                <th class="text-left">Nome</th>
+                <th class="text-left">Tempo</th>
+                <th class="text-left">Data</th>
+              </tr>
+            </thead>
+            <tbody id="rankBody"></tbody>
+          </table>
+          <p id="rankHintModal" class="mt-2 text-xs text-cyan-300"></p>
+        </div>
+
+        <div class="mt-6 flex gap-3 justify-center">
+          <button id="btnPlayAgain" class="px-6 py-3 bg-transparent neon-border rounded-lg hover:bg-blue-900/30 transition-all neon-text">Jogar Novamente</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MIRA -->
+    <div id="crosshair" class="crosshair"></div>
+
+    <!-- PLAYER + GUN -->
+    <div id="player" class="player">
+      <div class="gun-base"></div>
+      <div id="gun" class="gun"></div>
+    </div>
+  </div>
+
+  <script src="game.js" type="module"></script>
+</body>
+</html>
