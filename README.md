@@ -2,8 +2,8 @@
 
 Bem-vindo ao **Futuristic Target Shooter**, um jogo de tiro rápido e estiloso com visual neon, feito para navegador! Teste sua mira, desafie seus reflexos e tente entrar no Top 10 do ranking local.
 
-![Preview do Jogo](<img width="1363" height="593" alt="Captura de tela 2025-08-12 151243" src="Captura de tela 2025-08-12 151020.png" />
-) <!-- Adicione um screenshot se desejar -->
+<img width="1363" height="593" alt="Captura de tela 2025-08-12 151020" src="https://github.com/user-attachments/assets/0e9560e0-cb9d-4403-9a57-ad716ea0c8a9" />
+
 
 ---
 
