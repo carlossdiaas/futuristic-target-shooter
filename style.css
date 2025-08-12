@@ -1,0 +1,75 @@
+
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+    body { font-family: 'Orbitron', sans-serif; overflow: hidden; background:#0f0f23; color:#0ff; }
+    .game-container { position: relative; width: 100vw; height: 100vh; cursor: none; }
+
+    .neon-text { text-shadow: 0 0 5px #0ff, 0 0 10px #0ff, 0 0 15px #0ff; }
+    .neon-border { box-shadow: 0 0 10px #0ff, 0 0 20px #0ff, inset 0 0 10px #0ff; border: 1px solid #0ff; }
+
+    .target { position:absolute; border-radius:50%; cursor: none; transition: transform .1s; box-shadow:0 0 15px currentColor; }
+    .target:hover { transform: scale(1.1); }
+    .target-hit { animation: explode .5s forwards; }
+    @keyframes explode { 0%{transform:scale(1);opacity:1} 50%{transform:scale(1.5);opacity:.5} 100%{transform:scale(0);opacity:0} }
+
+    .laser { position:absolute; height:2px; background:#0ff; box-shadow:0 0 10px #0ff; transform-origin:left center; z-index:10; }
+
+    /* Mira */
+    .crosshair{
+  position:absolute; top:0; left:0; pointer-events:none; z-index:30;
+  transform:translate(-50%,-50%);
+  color:#0ff; /* cor base */
+filter: drop-shadow(0 0 3px #000) drop-shadow(0 0 8px #fff);
+  transition: filter .12s ease, color .12s ease;
+  will-change: transform;
+}
+.crosshair svg{ display:block; }
+
+.crosshair.smooth { transition: none; } /* (controle fino via JS) */
+
+/* quando mira está sobre um alvo */
+.crosshair.aim { color:#ffff80; filter: drop-shadow(0 0 10px #ffff80); }
+
+/* “recuo” breve ao atirar */
+.crosshair.shoot { animation: crosshairShoot .11s ease; }
+@keyframes crosshairShoot {
+  0%   { transform: translate(-50%,-50%) scale(1); }
+  50%  { transform: translate(-50%,-50%) scale(0.92); }
+  100% { transform: translate(-50%,-50%) scale(1); }
+}
+
+/* hit-marker (um X rapidinho) */
+.hitmarker{
+  position:absolute; width:26px; height:26px; pointer-events:none; z-index:35;
+  transform:translate(-50%,-50%); opacity:0; animation: hitmarker .18s ease forwards;
+}
+.hitmarker::before, .hitmarker::after{
+  content:""; position:absolute; left:50%; top:50%; width:2px; height:26px; background:#fff;
+  box-shadow:0 0 8px #fff;
+}
+.hitmarker::before{ transform:translate(-50%,-50%) rotate(45deg); }
+.hitmarker::after { transform:translate(-50%,-50%) rotate(-45deg); }
+@keyframes hitmarker {
+  0%{ opacity:0; transform:translate(-50%,-50%) scale(0.7); }
+  50%{ opacity:1; }
+  100%{ opacity:0; transform:translate(-50%,-50%) scale(1.05); }
+}
+
+
+    /* Arma */
+    .player { position:absolute; width:0; height:0; z-index:25; }
+    .gun { position:absolute; left:0; top:0; width:140px; height:16px; transform-origin:0 50%; background:linear-gradient(90deg,#022,#0ff); border-radius:10px; box-shadow:0 0 12px #0ff; }
+    .gun::after { content:""; position:absolute; right:-10px; top:50%; transform:translateY(-50%); width:16px; height:6px; background:#9ff; border-radius:4px; box-shadow:0 0 10px #9ff; }
+    .gun-base { position:absolute; left:-10px; top:50%; transform:translateY(-50%); width:18px; height:18px; border-radius:50%; background:#033; box-shadow:0 0 12px #0ff inset, 0 0 12px #0ff; }
+
+    /* Tabela ranking */
+    .rank-table th, .rank-table td { border-bottom:1px solid rgba(0,255,255,.2); padding:.5rem .75rem; }
+
+    @media (max-width: 768px)  {
+  .some {
+    display: none !important;
+  }
+}
+
+
+  

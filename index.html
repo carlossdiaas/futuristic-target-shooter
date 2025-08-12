@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Futuristic Target Shooter</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="style.css">
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
 
@@ -76,30 +77,40 @@ filter: drop-shadow(0 0 3px #000) drop-shadow(0 0 8px #fff);
 <body class="bg-black text-white">
   <div class="game-container" id="gameContainer">
     <!-- HUD -->
-    <div class="absolute top-4 left-4 z-20 bg-black/70 p-4 rounded-lg neon-border">
-      <div class="flex items-start justify-between gap-6">
+    <!-- HUD -->
+<div class="absolute top-4 left-4 z-20 bg-black/70 p-4 rounded-lg neon-border">
+  <div class="flex items-start justify-between gap-6">
+    <div class="text-white">
+      <!-- Título -->
+      <h1 class="some text-2xl font-bold mb-2 neon-text">TARGET SHOOTER</h1>
+      
+      <!-- SCORE e TARGET -->
+      <div class="flex items-end gap-8 some">
         <div>
-          <h1 class="text-2xl font-bold mb-2 neon-text">FUTURISTIC TARGET SHOOTER</h1>
-          <div class="flex items-end gap-8">
-            <div>
-              <p class="text-sm text-gray-400">SCORE</p>
-              <p class="text-3xl font-bold neon-text" id="score">0</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-400">TARGET</p>
-              <p class="text-3xl font-bold neon-text">30</p>
-            </div>
-            <div>
-              <p class="text-sm text-gray-400">TIMER</p>
-              <p class="text-3xl font-bold neon-text" id="timer">00:00.0</p>
-            </div>
-          </div>
-          <div class="mt-3">
-            <button id="btnRestart" class="px-3 py-1 text-xs rounded neon-border hover:bg-cyan-900/30">Reiniciar</button>
-          </div>
+          <p class="text-sm text-gray-400">SCORE</p>
+          <p class="text-3xl font-bold neon-text" id="score">0</p>
         </div>
+        <div>
+          <p class="text-sm text-gray-400">TARGET</p>
+          <p class="text-3xl font-bold neon-text">30</p>
+        </div>
+        
+      </div>
+<div>
+        <p class="text-sm text-gray-400">TIMER</p>
+        <p class="text-3xl font-bold neon-text" id="timer">00:00.0</p>
+      </div>
+      <!-- TIMER (vai ficar visível) -->
+      
+
+      <!-- Botão -->
+      <div class="mt-3 some">
+        <button id="btnRestart" class="px-3 py-1 text-xs rounded neon-border hover:bg-cyan-900/30">Reiniciar</button>
       </div>
     </div>
+  </div>
+</div>
+
 
     <!-- GAME OVER + RANKING LOCAL -->
     <div id="gameOver" class="hidden absolute inset-0 flex items-center justify-center z-30 bg-black/80">
