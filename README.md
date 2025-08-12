@@ -59,7 +59,7 @@ Você pode jogar de duas formas:
 
 ## ✨ Créditos
 
-- Feito por [Seu Nome].
+- Feito por Carlos Dias.
 - Fonte Orbitron do Google Fonts.
 - Desenvolvido com HTML, CSS (Tailwind + customizado) e JavaScript puro.
 
